@@ -60,6 +60,51 @@ void main() {
     expect(updated.brightness, 10);
     expect(await File('${directory.path}/brightness').readAsString(), '10\n');
   });
+
+  test('loads and writes backlights through su', () async {
+    final commands = <String>[];
+    final service = RootBacklightService(
+      runner: (executable, arguments) async {
+        expect(executable, 'su');
+        expect(arguments.first, '-c');
+        final command = arguments.last;
+        commands.add(command);
+
+        if (command.contains('basename')) {
+          return ProcessResult(1, 0, 'panel0\n', '');
+        }
+        if (command.contains('/brightness')) {
+          return ProcessResult(2, 0, '5\n', '');
+        }
+        if (command.contains('/max_brightness')) {
+          return ProcessResult(3, 0, '10\n', '');
+        }
+        if (command.contains('/actual_brightness')) {
+          return ProcessResult(4, 0, '4\n', '');
+        }
+        if (command.contains('/type')) {
+          return ProcessResult(5, 0, 'raw\n', '');
+        }
+        return ProcessResult(6, 0, '', '');
+      },
+    );
+
+    final devices = await service.loadDevices();
+    final updated = await service.setBrightness(devices.single, 9);
+
+    expect(devices.single.usesRoot, isTrue);
+    expect(devices.single.name, 'panel0');
+    expect(updated.brightness, 9);
+    expect(
+      commands,
+      contains(
+        allOf(
+          contains('>'),
+          contains('/sys/class/backlight/panel0/brightness'),
+        ),
+      ),
+    );
+  });
 }
 
 Future<Directory> _writeDevice(

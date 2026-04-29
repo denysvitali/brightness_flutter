@@ -32,7 +32,7 @@ class BrightnessApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: BrightnessHome(service: service ?? SysfsBacklightService()),
+      home: BrightnessHome(service: service ?? HybridBacklightService()),
     );
   }
 }
@@ -190,11 +190,11 @@ class _BrightnessHomeState extends State<BrightnessHome> {
       return _MessagePanel(
         icon: Icons.error_outline,
         title: 'Backlight scan failed',
-        message: 'Could not read /sys/class/backlight.',
+        message: 'Could not read /sys/class/backlight. Root may be required.',
         action: FilledButton.icon(
           onPressed: _loadDevices,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Retry'),
+          icon: const Icon(Icons.admin_panel_settings_outlined),
+          label: const Text('Try root access'),
         ),
       );
     }
@@ -206,8 +206,8 @@ class _BrightnessHomeState extends State<BrightnessHome> {
         message: 'No devices were found under /sys/class/backlight.',
         action: FilledButton.icon(
           onPressed: _loadDevices,
-          icon: const Icon(Icons.refresh),
-          label: const Text('Refresh'),
+          icon: const Icon(Icons.admin_panel_settings_outlined),
+          label: const Text('Try root access'),
         ),
       );
     }
@@ -273,8 +273,8 @@ class _BacklightCard extends StatelessWidget {
                       Text(device.name, style: theme.textTheme.titleLarge),
                       Text(
                         device.type == null
-                            ? device.path
-                            : '${device.type} • ${device.path}',
+                            ? _pathLabel
+                            : '${device.type} • $_pathLabel',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -330,6 +330,13 @@ class _BacklightCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String get _pathLabel {
+    if (device.usesRoot) {
+      return 'root • ${device.path}';
+    }
+    return device.path;
   }
 }
 
