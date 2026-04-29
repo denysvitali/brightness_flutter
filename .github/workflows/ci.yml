@@ -110,18 +110,6 @@ jobs:
           BUILD_NUMBER=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
 
-      - name: Prepare signing keystore (optional)
-        id: release_keystore
-        run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "KEYSTORE_PATH=" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          echo "$KEYSTORE_BASE64" | base64 --decode > release-keystore.p12
-          echo "KEYSTORE_PATH=${{ github.workspace }}/release-keystore.p12" >> $GITHUB_OUTPUT
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet
@@ -171,14 +159,6 @@ jobs:
         run: devenv shell -- flutter pub get
 
       - name: Build Release APK
-        env:
-          KEYSTORE_PATH: ${{ steps.release_keystore.outputs.KEYSTORE_PATH }}
-          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
-          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
-          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           devenv shell -- flutter build apk --release --no-pub \
             --target-platform android-arm64 \
