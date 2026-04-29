@@ -11,16 +11,6 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Build type to produce'
-        required: true
-        default: 'both'
-        type: choice
-        options:
-          - debug
-          - release
-          - both
 
 env:
   JAVA_VERSION: '21'
@@ -102,112 +92,13 @@ jobs:
       - name: Run tests
         run: devenv shell -- flutter test
 
-  build-debug:
-    name: Build Debug APK
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    if: |
-      (github.event_name != 'workflow_dispatch' &&
-       !startsWith(github.ref, 'refs/tags/v') &&
-       github.ref != 'refs/heads/main') ||
-      github.event.inputs.build_type == 'debug' ||
-      github.event.inputs.build_type == 'both'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Determine build metadata
-        id: build_meta
-        run: |
-          BUILD_NUMBER=$(( ${{ github.run_number }} * 100 + ${{ github.run_attempt }} ))
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_OUTPUT
-
-      - name: Prepare signing keystore (optional)
-        id: debug_keystore
-        run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "KEYSTORE_PATH=" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          echo "$KEYSTORE_BASE64" | base64 --decode > ci-keystore.p12
-          echo "KEYSTORE_PATH=${{ github.workspace }}/ci-keystore.p12" >> $GITHUB_OUTPUT
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo rm -rf /usr/local/share/boost
-          sudo rm -rf /opt/microsoft/powershell
-          sudo rm -rf /usr/local/share/chromedriver-linux64
-          sudo rm -rf /usr/local/share/edge_driver
-          sudo rm -rf /usr/local/share/gecko_driver
-          sudo rm -rf /usr/share/swift
-          df -h
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v30
-      - name: Install devenv
-        run: nix profile install nixpkgs#devenv
-
-      - name: Cache devenv metadata
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/devenv
-            ~/.local/share/devenv
-          key: ${{ runner.os }}-devenv-${{ hashFiles('devenv.lock', 'devenv.nix') }}
-          restore-keys: |
-            ${{ runner.os }}-devenv-
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: ${{ env.JAVA_VERSION }}
-
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml', '**/pubspec.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pub-
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Get dependencies
-        run: devenv shell -- flutter pub get
-
-      - name: Build Debug APK
-        env:
-          KEYSTORE_PATH: ${{ steps.debug_keystore.outputs.KEYSTORE_PATH }}
-          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
-          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
-          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
-        run: |
-          devenv shell -- flutter build apk --debug --no-pub \
-            --target-platform android-arm64 \
-            --build-number ${{ steps.build_meta.outputs.BUILD_NUMBER }}
-
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: brightness-flutter-debug-b${{ steps.build_meta.outputs.BUILD_NUMBER }}
-          path: build/app/outputs/flutter-apk/app-debug.apk
-          retention-days: 14
-
   build-release:
     name: Build Release APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' &&
-       (github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both')) ||
+      github.event_name == 'workflow_dispatch' ||
       startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout repository

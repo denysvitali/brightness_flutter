@@ -8,7 +8,7 @@ A small Flutter app that controls Linux backlight devices exposed under
 ```sh
 devenv shell -- flutter pub get
 devenv shell -- flutter test
-devenv shell -- flutter build apk --debug --no-pub
+devenv shell -- flutter build apk --release --no-pub --target-platform android-arm64
 devenv shell -- flutter build linux --debug --no-pub
 ```
 
