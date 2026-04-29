@@ -35,6 +35,9 @@ migrate_working_dir/
 .devenv/
 .android/
 local.properties
+**/*.keystore
+**/*.jks
+**/*.p12
 
 # Symbolication related
 app.*.symbols
