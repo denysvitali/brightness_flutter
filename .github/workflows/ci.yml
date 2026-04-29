@@ -39,12 +39,18 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v30
-
-      - name: Cache Nix builds
-        uses: DeterminateSystems/magic-nix-cache-action@main
-
       - name: Install devenv
         run: nix profile install nixpkgs#devenv
+
+      - name: Cache devenv metadata
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/devenv
+            ~/.local/share/devenv
+          key: ${{ runner.os }}-devenv-${{ hashFiles('devenv.lock', 'devenv.nix') }}
+          restore-keys: |
+            ${{ runner.os }}-devenv-
 
       - name: Cache pub dependencies
         uses: actions/cache@v4
@@ -69,12 +75,18 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v30
-
-      - name: Cache Nix builds
-        uses: DeterminateSystems/magic-nix-cache-action@main
-
       - name: Install devenv
         run: nix profile install nixpkgs#devenv
+
+      - name: Cache devenv metadata
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/devenv
+            ~/.local/share/devenv
+          key: ${{ runner.os }}-devenv-${{ hashFiles('devenv.lock', 'devenv.nix') }}
+          restore-keys: |
+            ${{ runner.os }}-devenv-
 
       - name: Cache pub dependencies
         uses: actions/cache@v4
@@ -125,12 +137,18 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v30
-
-      - name: Cache Nix builds
-        uses: DeterminateSystems/magic-nix-cache-action@main
-
       - name: Install devenv
         run: nix profile install nixpkgs#devenv
+
+      - name: Cache devenv metadata
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/devenv
+            ~/.local/share/devenv
+          key: ${{ runner.os }}-devenv-${{ hashFiles('devenv.lock', 'devenv.nix') }}
+          restore-keys: |
+            ${{ runner.os }}-devenv-
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -199,12 +217,18 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v30
-
-      - name: Cache Nix builds
-        uses: DeterminateSystems/magic-nix-cache-action@main
-
       - name: Install devenv
         run: nix profile install nixpkgs#devenv
+
+      - name: Cache devenv metadata
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/devenv
+            ~/.local/share/devenv
+          key: ${{ runner.os }}-devenv-${{ hashFiles('devenv.lock', 'devenv.nix') }}
+          restore-keys: |
+            ${{ runner.os }}-devenv-
 
       - name: Setup Java
         uses: actions/setup-java@v4
