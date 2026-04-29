@@ -40,6 +40,9 @@ jobs:
       - name: Install Nix
         uses: cachix/install-nix-action@v30
 
+      - name: Cache Nix builds
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
       - name: Install devenv
         run: nix profile install nixpkgs#devenv
 
@@ -66,6 +69,9 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v30
+
+      - name: Cache Nix builds
+        uses: DeterminateSystems/magic-nix-cache-action@main
 
       - name: Install devenv
         run: nix profile install nixpkgs#devenv
@@ -119,6 +125,9 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v30
+
+      - name: Cache Nix builds
+        uses: DeterminateSystems/magic-nix-cache-action@main
 
       - name: Install devenv
         run: nix profile install nixpkgs#devenv
@@ -190,6 +199,9 @@ jobs:
 
       - name: Install Nix
         uses: cachix/install-nix-action@v30
+
+      - name: Cache Nix builds
+        uses: DeterminateSystems/magic-nix-cache-action@main
 
       - name: Install devenv
         run: nix profile install nixpkgs#devenv
