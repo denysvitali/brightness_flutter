@@ -1,0 +1,42 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  android:
+    name: Analyze, test, and build Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+
+      - name: Install devenv
+        run: nix profile install nixpkgs#devenv
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Get dependencies
+        run: devenv shell -- flutter pub get
+
+      - name: Analyze
+        run: devenv shell -- flutter analyze
+
+      - name: Test
+        run: devenv shell -- flutter test
+
+      - name: Build debug APK
+        run: devenv shell -- flutter build apk --debug --no-pub
