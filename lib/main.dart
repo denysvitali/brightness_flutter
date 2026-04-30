@@ -76,7 +76,7 @@ class _BrightnessHomeState extends State<BrightnessHome> {
         final ok = await hybrid.loadDevicesWithRoot();
         if (!ok) {
           throw const BacklightAccessException(
-            'Root access failed. Could not read backlight devices.',
+            'Root access failed. Could not read backlight or LED devices.',
           );
         }
         devices = await hybrid.root.loadDevices();
@@ -544,8 +544,9 @@ class _NoDevicesPanel extends StatelessWidget {
               Text('No backlights found', style: theme.textTheme.headlineSmall),
               const SizedBox(height: 8),
               Text(
-                'No devices were found under /sys/class/backlight.\n'
-                'This may happen on Android devices without root.',
+                'No devices were found under /sys/class/backlight\n'
+                'or /sys/class/leds. This may happen on Android\n'
+                'devices without root.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
