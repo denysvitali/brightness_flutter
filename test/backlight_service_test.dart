@@ -70,22 +70,27 @@ void main() {
         final command = arguments.last;
         commands.add(command);
 
-        if (command.contains('basename')) {
+        // Only respond to /sys/class/backlight path
+        if (command.contains('backlight') && command.contains('basename')) {
           return ProcessResult(1, 0, 'panel0\n', '');
         }
-        if (command.contains('/brightness')) {
+        if (command.contains('backlight') && command.contains('/brightness')) {
           return ProcessResult(2, 0, '5\n', '');
         }
-        if (command.contains('/max_brightness')) {
+        if (command.contains('backlight') && command.contains('/max_brightness')) {
           return ProcessResult(3, 0, '10\n', '');
         }
-        if (command.contains('/actual_brightness')) {
+        if (command.contains('backlight') && command.contains('/actual_brightness')) {
           return ProcessResult(4, 0, '4\n', '');
         }
-        if (command.contains('/type')) {
+        if (command.contains('backlight') && command.contains('/type')) {
           return ProcessResult(5, 0, 'raw\n', '');
         }
-        return ProcessResult(6, 0, '', '');
+        // Don't respond to leds path in this test
+        if (command.contains('leds')) {
+          return ProcessResult(6, 0, '', '');
+        }
+        return ProcessResult(7, 0, '', '');
       },
     );
 
