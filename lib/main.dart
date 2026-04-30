@@ -52,6 +52,9 @@ class _BrightnessHomeState extends State<BrightnessHome> {
   final _deviceErrors = <String, String>{};
   Object? _loadError;
   var _loading = true;
+  var _rootChecked = false;
+  var _rootAvailable = false;
+  var _rootMode = false;
 
   @override
   void initState() {
@@ -67,7 +70,19 @@ class _BrightnessHomeState extends State<BrightnessHome> {
     });
 
     try {
-      final devices = await widget.service.loadDevices();
+      final List<BacklightDevice> devices;
+      if (_rootMode) {
+        final hybrid = widget.service as HybridBacklightService;
+        final ok = await hybrid.loadDevicesWithRoot();
+        if (!ok) {
+          throw const BacklightAccessException(
+            'Root access failed. Could not read backlight devices.',
+          );
+        }
+        devices = await hybrid.root.loadDevices();
+      } else {
+        devices = await widget.service.loadDevices();
+      }
       if (!mounted) {
         return;
       }
@@ -84,6 +99,36 @@ class _BrightnessHomeState extends State<BrightnessHome> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _checkRootAndRetry() async {
+    final hybrid = widget.service as HybridBacklightService;
+    final rootAvailable = await hybrid.isRootAvailable();
+    if (!mounted) return;
+
+    setState(() {
+      _rootChecked = true;
+      _rootAvailable = rootAvailable;
+    });
+
+    if (rootAvailable) {
+      setState(() => _rootMode = true);
+      await _loadDevices();
+    }
+  }
+
+  Future<void> _enableRootMode() async {
+    final hybrid = widget.service as HybridBacklightService;
+    final rootAvailable = await hybrid.isRootAvailable();
+    if (!mounted) return;
+
+    setState(() {
+      _rootChecked = true;
+      _rootAvailable = rootAvailable;
+      if (rootAvailable) {
+        _rootMode = true;
+      }
+    });
   }
 
   Future<void> _setBrightness(BacklightDevice device, double value) async {
@@ -187,28 +232,23 @@ class _BrightnessHomeState extends State<BrightnessHome> {
     }
 
     if (_loadError != null) {
-      return _MessagePanel(
-        icon: Icons.error_outline,
-        title: 'Backlight scan failed',
-        message: 'Could not read /sys/class/backlight. Root may be required.',
-        action: FilledButton.icon(
-          onPressed: _loadDevices,
-          icon: const Icon(Icons.admin_panel_settings_outlined),
-          label: const Text('Try root access'),
-        ),
+      return _ErrorPanel(
+        error: _loadError!,
+        rootChecked: _rootChecked,
+        rootAvailable: _rootAvailable,
+        rootMode: _rootMode,
+        onRetry: _loadDevices,
+        onCheckRoot: _checkRootAndRetry,
       );
     }
 
     if (_devices.isEmpty) {
-      return _MessagePanel(
-        icon: Icons.light_mode_outlined,
-        title: 'No backlights found',
-        message: 'No devices were found under /sys/class/backlight.',
-        action: FilledButton.icon(
-          onPressed: _loadDevices,
-          icon: const Icon(Icons.admin_panel_settings_outlined),
-          label: const Text('Try root access'),
-        ),
+      return _NoDevicesPanel(
+        rootChecked: _rootChecked,
+        rootAvailable: _rootAvailable,
+        rootMode: _rootMode,
+        onRetry: _loadDevices,
+        onCheckRoot: _checkRootAndRetry,
       );
     }
 
@@ -386,6 +426,225 @@ class _MessagePanel extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ErrorPanel extends StatelessWidget {
+  const _ErrorPanel({
+    required this.error,
+    required this.rootChecked,
+    required this.rootAvailable,
+    required this.rootMode,
+    required this.onRetry,
+    required this.onCheckRoot,
+  });
+
+  final Object error;
+  final bool rootChecked;
+  final bool rootAvailable;
+  final bool rootMode;
+  final VoidCallback onRetry;
+  final VoidCallback onCheckRoot;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final errorMsg = error.toString();
+
+    return Center(
+      child: Card(
+        elevation: 0,
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+              const SizedBox(height: 16),
+              Text('Backlight scan failed', style: theme.textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              Text(
+                errorMsg,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _RootStatusBadge(
+                rootChecked: rootChecked,
+                rootAvailable: rootAvailable,
+                rootMode: rootMode,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: onCheckRoot,
+                    icon: const Icon(Icons.admin_panel_settings_outlined),
+                    label: Text(rootChecked ? 'Retry root' : 'Check root'),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    onPressed: rootAvailable && !rootMode ? onCheckRoot : null,
+                    icon: const Icon(Icons.lock_open),
+                    label: const Text('Use root access'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoDevicesPanel extends StatelessWidget {
+  const _NoDevicesPanel({
+    required this.rootChecked,
+    required this.rootAvailable,
+    required this.rootMode,
+    required this.onRetry,
+    required this.onCheckRoot,
+  });
+
+  final bool rootChecked;
+  final bool rootAvailable;
+  final bool rootMode;
+  final VoidCallback onRetry;
+  final VoidCallback onCheckRoot;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Card(
+        elevation: 0,
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.light_mode_outlined, size: 48, color: theme.colorScheme.primary),
+              const SizedBox(height: 16),
+              Text('No backlights found', style: theme.textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              Text(
+                'No devices were found under /sys/class/backlight.\n'
+                'This may happen on Android devices without root.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _RootStatusBadge(
+                rootChecked: rootChecked,
+                rootAvailable: rootAvailable,
+                rootMode: rootMode,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: onCheckRoot,
+                    icon: const Icon(Icons.admin_panel_settings_outlined),
+                    label: Text(rootChecked ? 'Retry root' : 'Check root'),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    onPressed: rootAvailable && !rootMode ? onCheckRoot : null,
+                    icon: const Icon(Icons.lock_open),
+                    label: const Text('Use root access'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RootStatusBadge extends StatelessWidget {
+  const _RootStatusBadge({
+    required this.rootChecked,
+    required this.rootAvailable,
+    required this.rootMode,
+  });
+
+  final bool rootChecked;
+  final bool rootAvailable;
+  final bool rootMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (!rootChecked) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.help_outline, size: 16, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            'Root status unknown',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (!rootAvailable) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.close, size: 16, color: theme.colorScheme.error),
+          const SizedBox(width: 6),
+          Text(
+            'Root not available',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          rootMode ? Icons.lock_open : Icons.lock_outline,
+          size: 16,
+          color: rootMode ? Colors.green : theme.colorScheme.primary,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          rootMode ? 'Root mode active' : 'Root available',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: rootMode ? Colors.green : theme.colorScheme.primary,
+          ),
+        ),
+      ],
     );
   }
 }

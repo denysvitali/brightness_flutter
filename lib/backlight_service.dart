@@ -9,6 +9,7 @@ class BacklightDevice {
     this.actualBrightness,
     this.type,
     this.usesRoot = false,
+    this.rootAvailable = false,
   });
 
   final String name;
@@ -18,6 +19,7 @@ class BacklightDevice {
   final int? actualBrightness;
   final String? type;
   final bool usesRoot;
+  final bool rootAvailable;
 
   double get percent {
     if (maxBrightness <= 0) {
@@ -32,6 +34,7 @@ class BacklightDevice {
     int? maxBrightness,
     String? type,
     bool? usesRoot,
+    bool? rootAvailable,
   }) {
     return BacklightDevice(
       name: name,
@@ -41,6 +44,7 @@ class BacklightDevice {
       actualBrightness: actualBrightness ?? this.actualBrightness,
       type: type ?? this.type,
       usesRoot: usesRoot ?? this.usesRoot,
+      rootAvailable: rootAvailable ?? this.rootAvailable,
     );
   }
 }
@@ -73,6 +77,20 @@ class HybridBacklightService implements BacklightService {
   final SysfsBacklightService direct;
   final RootBacklightService root;
   final bool rootFallbackEnabled;
+
+  Future<bool> isRootAvailable() async {
+    return await root.isRootAvailable();
+  }
+
+  Future<bool> loadDevicesWithRoot() async {
+    try {
+      final devices = await root.loadDevices();
+      if (devices.isNotEmpty) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
 
   @override
   Future<List<BacklightDevice>> loadDevices() async {
@@ -271,6 +289,15 @@ class RootBacklightService implements BacklightService {
       );
     }
     return '${result.stdout}';
+  }
+
+  Future<bool> isRootAvailable() async {
+    try {
+      final result = await (runner ?? Process.run)('su', ['-c', 'echo test']);
+      return result.exitCode == 0 && '${result.stdout}'.trim() == 'test';
+    } catch (_) {
+      return false;
+    }
   }
 }
 
