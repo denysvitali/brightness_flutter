@@ -193,6 +193,21 @@ class _BrightnessHomeState extends State<BrightnessHome> {
       appBar: AppBar(
         title: const Text('Brightness'),
         actions: [
+          if (_rootMode)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Chip(
+                avatar: const Icon(Icons.lock_open, size: 16),
+                label: const Text('Root'),
+                backgroundColor: theme.colorScheme.primaryContainer,
+                labelStyle: TextStyle(
+                  color: theme.colorScheme.onPrimaryContainer,
+                  fontSize: 12,
+                ),
+                side: BorderSide.none,
+                padding: EdgeInsets.zero,
+              ),
+            ),
           IconButton(
             tooltip: 'Refresh',
             onPressed: _loading ? null : _loadDevices,
@@ -290,35 +305,81 @@ class _BacklightCard extends StatelessWidget {
     final theme = Theme.of(context);
     final percent = device.percent.round();
     final actual = device.actualBrightness;
+    final brightnessNormalized = device.percent / 100;
+
+    // Icon color based on brightness
+    final iconColor = Color.lerp(
+      Colors.amber.shade200,
+      Colors.amber.shade700,
+      brightnessNormalized,
+    )!;
+
     return Card(
       elevation: 0,
       color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.wb_sunny_outlined, color: theme.colorScheme.primary),
-                const SizedBox(width: 12),
+                // Animated brightness icon
+                Icon(
+                  Icons.wb_sunny,
+                  color: iconColor,
+                  size: 28 + (8 * brightnessNormalized),
+                ),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(device.name, style: theme.textTheme.titleLarge),
+                      Row(
+                        children: [
+                          _DeviceTypeChip(type: device.type),
+                          if (device.usesRoot) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.lock_open,
+                                    size: 10,
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    'root',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: theme.colorScheme.onPrimaryContainer,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 2),
                       Text(
-                        device.type == null
-                            ? _pathLabel
-                            : '${device.type} • $_pathLabel',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        device.name,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -326,43 +387,121 @@ class _BacklightCard extends StatelessWidget {
                 ),
                 if (busy)
                   const SizedBox.square(
-                    dimension: 18,
+                    dimension: 24,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 else
-                  Text('$percent%', style: theme.textTheme.titleMedium),
+                  Text(
+                    '$percent%',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: iconColor,
+                    ),
+                  ),
               ],
             ),
-            const SizedBox(height: 18),
-            Slider(
-              min: 0,
-              max: device.maxBrightness.toDouble(),
-              divisions: device.maxBrightness <= 1000
-                  ? device.maxBrightness
-                  : null,
-              value: device.brightness
-                  .clamp(0, device.maxBrightness)
-                  .toDouble(),
-              label: '$percent%',
-              onChanged: onChanged,
-              onChangeEnd: onChangeEnd,
+            const SizedBox(height: 16),
+            // Custom slider with gradient track
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // Background track
+                Container(
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                // Filled track
+                FractionallySizedBox(
+                  widthFactor: brightnessNormalized,
+                  child: Container(
+                    height: 6,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.amber.shade200,
+                          Colors.amber.shade600,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+                // Actual slider
+                Slider(
+                  min: 0,
+                  max: device.maxBrightness.toDouble(),
+                  divisions: device.maxBrightness <= 1000
+                      ? device.maxBrightness
+                      : null,
+                  value: device.brightness
+                      .clamp(0, device.maxBrightness)
+                      .toDouble(),
+                  onChanged: onChanged,
+                  onChangeEnd: onChangeEnd,
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             Row(
               children: [
-                Text('${device.brightness} / ${device.maxBrightness}'),
+                Icon(
+                  Icons.format_list_numbered,
+                  size: 12,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${device.brightness} / ${device.maxBrightness}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 if (actual != null) ...[
                   const SizedBox(width: 12),
-                  Text('actual $actual'),
+                  Icon(
+                    Icons.visibility,
+                    size: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'actual $actual',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ],
             ),
             if (error != null) ...[
               const SizedBox(height: 10),
-              Text(
-                error!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 14,
+                      color: theme.colorScheme.onErrorContainer,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        error!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onErrorContainer,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -371,12 +510,44 @@ class _BacklightCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  String get _pathLabel {
-    if (device.usesRoot) {
-      return 'root • ${device.path}';
-    }
-    return device.path;
+class _DeviceTypeChip extends StatelessWidget {
+  const _DeviceTypeChip({required this.type});
+
+  final String? type;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final (icon, label, color) = switch (type) {
+      'led' => (Icons.lightbulb_outline, 'LED', Colors.amber),
+      'backlight' => (Icons.tv, 'Backlight', Colors.blue),
+      _ => (Icons.device_unknown, 'Unknown', Colors.grey),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: color),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -401,17 +572,29 @@ class _MessagePanel extends StatelessWidget {
         elevation: 0,
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 48, color: theme.colorScheme.primary),
-              const SizedBox(height: 16),
-              Text(title, style: theme.textTheme.headlineSmall),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 48, color: theme.colorScheme.primary),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 message,
@@ -420,7 +603,7 @@ class _MessagePanel extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               action,
             ],
           ),
@@ -457,17 +640,29 @@ class _ErrorPanel extends StatelessWidget {
         elevation: 0,
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-              const SizedBox(height: 16),
-              Text('Backlight scan failed', style: theme.textTheme.headlineSmall),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.errorContainer.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Backlight scan failed',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 errorMsg,
@@ -476,26 +671,26 @@ class _ErrorPanel extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _RootStatusBadge(
                 rootChecked: rootChecked,
                 rootAvailable: rootAvailable,
                 rootMode: rootMode,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   OutlinedButton.icon(
                     onPressed: onCheckRoot,
                     icon: const Icon(Icons.admin_panel_settings_outlined),
-                    label: Text(rootChecked ? 'Retry root' : 'Check root'),
+                    label: Text(rootChecked ? 'Retry' : 'Check root'),
                   ),
                   const SizedBox(width: 12),
                   FilledButton.icon(
                     onPressed: rootAvailable && !rootMode ? onCheckRoot : null,
                     icon: const Icon(Icons.lock_open),
-                    label: const Text('Use root access'),
+                    label: const Text('Use root'),
                   ),
                 ],
               ),
@@ -531,47 +726,63 @@ class _NoDevicesPanel extends StatelessWidget {
         elevation: 0,
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(28),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.light_mode_outlined, size: 48, color: theme.colorScheme.primary),
-              const SizedBox(height: 16),
-              Text('No backlights found', style: theme.textTheme.headlineSmall),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lightbulb_outline,
+                  size: 48,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'No backlights found',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 'No devices were found under /sys/class/backlight\n'
-                'or /sys/class/leds. This may happen on Android\n'
-                'devices without root.',
+                'or /sys/class/leds. This may happen on\n'
+                'Android devices without root.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _RootStatusBadge(
                 rootChecked: rootChecked,
                 rootAvailable: rootAvailable,
                 rootMode: rootMode,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   OutlinedButton.icon(
                     onPressed: onCheckRoot,
                     icon: const Icon(Icons.admin_panel_settings_outlined),
-                    label: Text(rootChecked ? 'Retry root' : 'Check root'),
+                    label: Text(rootChecked ? 'Retry' : 'Check root'),
                   ),
                   const SizedBox(width: 12),
                   FilledButton.icon(
                     onPressed: rootAvailable && !rootMode ? onCheckRoot : null,
                     icon: const Icon(Icons.lock_open),
-                    label: const Text('Use root access'),
+                    label: const Text('Use root'),
                   ),
                 ],
               ),
